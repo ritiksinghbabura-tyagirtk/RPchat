@@ -1,0 +1,52 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets/
+credentials/
+
+# Databases and private user data
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+instance/
+media_store/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Android / Gradle
+.gradle/
+.kotlin/
+build/
+local.properties
+*.apk
+*.aab
+
+# Backups
+backups/
+.patch-backups/
+SAFE_DEPENDENCY_BACKUP_*/
+*.backup
+*.bak
+*.old
+
+# Runtime
+*.log
+*.pid
+
+# IDE
+.idea/
+.vscode/
+.DS_Store

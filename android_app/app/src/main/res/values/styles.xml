@@ -1,0 +1,14 @@
+<resources>
+    <style name="Theme.RTKPrivate"
+        parent="Theme.MaterialComponents.DayNight.NoActionBar">
+
+        <item name="colorPrimary">@color/rtk_green</item>
+        <item name="colorPrimaryVariant">@color/rtk_green</item>
+        <item name="colorSecondary">@color/rtk_green</item>
+        <item name="android:colorAccent">@color/rtk_green</item>
+        <item name="android:statusBarColor">@color/rtk_background</item>
+        <item name="android:navigationBarColor">@color/rtk_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/rtk_background</item>
+    </style>
+</resources>
