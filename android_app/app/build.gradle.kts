@@ -3,7 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val rtkApiBaseUrl = project.findProperty("RTK_API_BASE_URL")?.toString() ?: "http://127.0.0.1:8789"
+
 android {
+    buildFeatures { buildConfig = true }
     namespace = "com.rtk.privatechat"
     compileSdk = 35
 
@@ -13,6 +16,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
+        buildConfigField("String", "API_BASE_URL", "\"$rtkApiBaseUrl\"")
     }
 
     compileOptions {

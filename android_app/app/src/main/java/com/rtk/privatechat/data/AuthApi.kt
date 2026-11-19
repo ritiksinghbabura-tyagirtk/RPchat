@@ -1,6 +1,7 @@
 package com.rtk.privatechat.data
 
 import org.json.JSONObject
+import com.rtk.privatechat.BuildConfig
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -8,7 +9,7 @@ import java.net.URL
 object AuthApi {
     // Local development: Android app and Ubuntu PRoot on the same phone.
     // For another device, replace this with your server's private LAN address.
-    private const val BASE_URL = "http://127.0.0.1:8789"
+    private val BASE_URL = BuildConfig.API_BASE_URL.trimEnd('/')
 
     fun post(
         path: String,
@@ -28,6 +29,9 @@ object AuthApi {
         body: JSONObject?,
         token: String?
     ): JSONObject {
+        require(BuildConfig.DEBUG || BASE_URL.startsWith("https://", ignoreCase = true)) {
+            "Release builds require an HTTPS RTK_API_BASE_URL"
+        }
         val connection = (URL(BASE_URL + path).openConnection()
             as HttpURLConnection)
 

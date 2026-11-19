@@ -2,7 +2,7 @@ import base64
 import hashlib
 from flask import Blueprint, g, jsonify, request
 from app.extensions import db
-from app.models import UserIdentity
+from app.models import User, UserIdentity
 from app.routes.auth import require_auth
 
 identity_bp = Blueprint("identity", __name__, url_prefix="/api/v1/identity")
@@ -79,3 +79,39 @@ def my_identity():
             "created_at": identity.created_at.isoformat() + "Z",
         }
     })
+
+
+@identity_bp.get("/by-user/<public_id>")
+@require_auth
+def contact_identity(public_id):
+    """Return public keys only for self or an accepted contact."""
+    from app.models import ContactRequest
+    from sqlalchemy import or_
+
+    other = User.query.filter_by(public_id=public_id.strip().upper(), status="active").first()
+    if other is None:
+        return fail("Identity not found", 404)
+    if other.id != g.current_user.id:
+        a, b = sorted((g.current_user.id, other.id))
+        accepted = ContactRequest.query.filter(
+            ContactRequest.status == "accepted",
+            or_(
+                (ContactRequest.requester_id == a) & (ContactRequest.target_id == b),
+                (ContactRequest.requester_id == b) & (ContactRequest.target_id == a),
+            )
+        ).first()
+        if accepted is None:
+            return fail("Accepted contact required", 403)
+
+    identity = UserIdentity.query.filter_by(user_id=other.id).first()
+    if identity is None:
+        return fail("Identity has not been created", 404)
+    response = jsonify({"ok": True, "identity": {
+        "user_id": other.public_id,
+        "username": other.username,
+        "signing_public_key": identity.signing_public_key,
+        "exchange_public_key": identity.exchange_public_key,
+        "fingerprint": identity.fingerprint,
+    }})
+    response.headers["Cache-Control"] = "no-store"
+    return response

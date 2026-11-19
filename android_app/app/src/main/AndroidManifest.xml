@@ -5,9 +5,10 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
-        android:usesCleartextTraffic="true"
         android:allowBackup="false"
-        android:label="RTK PRIVATE"
+        android:label="RPchat"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/Theme.RTKPrivate"
         android:supportsRtl="true">
 
@@ -25,5 +26,6 @@
             </intent-filter>
 
         </activity>
-            <activity android:name="com.rtk.privatechat.ChatActivity" android:exported="false" />\n    </application>
+            <activity android:name="com.rtk.privatechat.ChatActivity" android:exported="false" />
+    </application>
 </manifest>

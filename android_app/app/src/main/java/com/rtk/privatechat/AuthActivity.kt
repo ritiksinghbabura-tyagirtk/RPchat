@@ -343,72 +343,94 @@ class AuthActivity : Activity() {
     }
 
     private fun showRecoveryDialog() {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(8), dp(20), dp(8))
-        }
+        val idField = EditText(this).apply { hint = "RTK ID"; isSingleLine = true }
+        AlertDialog.Builder(this)
+            .setTitle("Recover RPchat account")
+            .setMessage("Enter your RTK ID first. Your 12-word phrase will be requested one word at a time and stays on this device.")
+            .setView(idField)
+            .setPositiveButton("Continue", null)
+            .setNegativeButton("Cancel", null)
+            .create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val id = idField.text.toString().trim().uppercase()
+                        if (!Regex("^RTK-[0-9A-F]{16}$").matches(id)) {
+                            toast("Enter a valid RTK ID")
+                            return@setOnClickListener
+                        }
+                        dialog.dismiss()
+                        collectRecoveryWords(id)
+                    }
+                }
+                dialog.show()
+            }
+    }
 
-        val idField = EditText(this).apply {
-            hint = "RTK ID"
-            isSingleLine = true
+    private fun collectRecoveryWords(publicId: String) {
+        val words = mutableListOf<String>()
+        fun askWord(position: Int) {
+            val field = EditText(this).apply {
+                hint = "Recovery word ${position + 1} of 12"
+                isSingleLine = true
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Recovery phrase • ${position + 1}/12")
+                .setMessage("Enter only word ${position + 1}. Keep the exact original order.")
+                .setView(field)
+                .setCancelable(false)
+                .setPositiveButton(if (position == 11) "Verify phrase" else "Next", null)
+                .setNegativeButton("Cancel") { _, _ -> words.clear() }
+                .create().also { dialog ->
+                    dialog.setOnShowListener {
+                        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                            val word = field.text.toString().trim().lowercase()
+                            if (word.isBlank() || word.any { it.isWhitespace() }) {
+                                toast("Enter one valid word")
+                                return@setOnClickListener
+                            }
+                            words.add(word)
+                            dialog.dismiss()
+                            if (position < 11) askWord(position + 1)
+                            else {
+                                val phrase = words.joinToString(" ")
+                                if (!IdentityCrypto.validateMnemonic(this, phrase)) {
+                                    words.clear()
+                                    toast("Phrase is invalid or the word order is incorrect. Start again.")
+                                    collectRecoveryWords(publicId)
+                                } else askNewRecoveryPassword(publicId, phrase)
+                            }
+                        }
+                    }
+                    dialog.show()
+                }
         }
+        askWord(0)
+    }
 
-        val phraseField = EditText(this).apply {
-            hint = "Enter all 12 recovery words in order"
-            minLines = 3
-            maxLines = 5
-            inputType = InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_FLAG_MULTI_LINE or
-                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        }
-
-        val newPasswordField = EditText(this).apply {
+    private fun askNewRecoveryPassword(publicId: String, phrase: String) {
+        val field = EditText(this).apply {
             hint = "New password (minimum 12 characters)"
             isSingleLine = true
-            inputType = InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_VARIATION_PASSWORD
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
-
-        layout.addView(idField)
-        layout.addView(phraseField)
-        layout.addView(newPasswordField)
-
         AlertDialog.Builder(this)
-            .setTitle("Recover your account")
-            .setMessage(
-                "Your 12 words are processed on this phone. " +
-                "The phrase is never sent to the server."
-            )
-            .setView(layout)
-            .setPositiveButton("Recover", null)
+            .setTitle("Set a new password")
+            .setMessage("The recovery phrase is never sent to the server.")
+            .setView(field)
+            .setPositiveButton("Recover account", null)
             .setNegativeButton("Cancel", null)
-            .create()
-            .also { dialog ->
+            .create().also { dialog ->
                 dialog.setOnShowListener {
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                        .setOnClickListener {
-                            val id = idField.text.toString().trim().uppercase()
-                            val phrase = phraseField.text.toString().trim()
-                            val password = newPasswordField.text.toString()
-
-                            if (!Regex("^RTK-[0-9A-F]{16}$").matches(id)) {
-                                toast("Enter a valid RTK ID")
-                                return@setOnClickListener
-                            }
-
-                            if (password.length < 12) {
-                                toast("New password must contain at least 12 characters")
-                                return@setOnClickListener
-                            }
-
-                            if (!IdentityCrypto.validateMnemonic(this, phrase)) {
-                                toast("Invalid 12-word phrase or word order")
-                                return@setOnClickListener
-                            }
-
-                            dialog.dismiss()
-                            performRecovery(id, phrase, password)
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val password = field.text.toString()
+                        if (password.length < 12) {
+                            toast("New password must contain at least 12 characters")
+                            return@setOnClickListener
                         }
+                        dialog.dismiss()
+                        performRecovery(publicId, phrase, password)
+                    }
                 }
                 dialog.show()
             }
@@ -467,6 +489,9 @@ class AuthActivity : Activity() {
 
                 val user = result.optJSONObject("user")
                 val recoveredId = user?.optString("user_id") ?: publicId
+
+                // The same phrase deterministically restores the original identity keys.
+                IdentityVault.save(this, material)
 
                 runOnUiThread {
                     recoveryButton.isEnabled = true

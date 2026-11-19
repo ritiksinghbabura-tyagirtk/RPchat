@@ -16,9 +16,10 @@ import android.widget.Toast
 import android.util.Base64
 import com.rtk.privatechat.data.AuthApi
 import com.rtk.privatechat.data.SessionStore
+import com.rtk.privatechat.security.ChatCrypto
+import com.rtk.privatechat.security.IdentityVault
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.SecureRandom
 import java.util.concurrent.Executors
 
 class ChatActivity : Activity() {
@@ -34,6 +35,7 @@ class ChatActivity : Activity() {
 
     private var root: LinearLayout? = null
     private var activeConversation: String? = null
+    private var activePeerRtkId: String? = null
     private var messageList: LinearLayout? = null
     private var messageInput: EditText? = null
     private var statusView: TextView? = null
@@ -76,15 +78,16 @@ class ChatActivity : Activity() {
         }
         page.addView(label("RTK PRIVATE  •  $title", 21f))
         page.addView(label(
-            "TEST MODE — Base64 only; NOT end-to-end encrypted.",
+            "E2EE • X25519 + AES-256-GCM",
             12f
-        ).apply { setTextColor(0xffb3261e.toInt()) })
+        ).apply { setTextColor(0xff16845b.toInt()) })
         setContentView(page)
         return page
     }
 
     private fun showChatList() {
         activeConversation = null
+        activePeerRtkId = null
         messageList = null
         messageInput = null
         val page = base("Chats")
@@ -163,8 +166,11 @@ class ChatActivity : Activity() {
 
     private fun openConversation(id: String, username: String, rtkId: String) {
         activeConversation = id
+        activePeerRtkId = rtkId
         lastRenderedSignature = ""
         val page = base("Chat with $username")
+        page.setBackgroundColor(0xffefeae2.toInt())
+        page.addView(label("🔒 Encrypted conversation", 13f))
         page.addView(label(rtkId, 12f))
         page.addView(makeButton("← Back to chats") { showChatList() }, match())
         statusView = label("Loading messages…", 12f)
@@ -204,15 +210,20 @@ class ChatActivity : Activity() {
         messageInput?.isEnabled = false
         worker.execute {
             try {
-                // TEST ONLY: reversible Base64 encoding, not encryption.
-                val encoded = Base64.encodeToString(
-                    plain.toByteArray(Charsets.UTF_8), Base64.NO_WRAP
+                val peerId = activePeerRtkId ?: error("Chat contact is missing")
+                val ownMaterial = IdentityVault.load(this) ?: error("Identity vault is locked or missing. Recover your account before sending.")
+                val peerResponse = AuthApi.get("/api/v1/identity/by-user/$peerId", token)
+                val peerIdentity = peerResponse.getJSONObject("identity")
+                val encrypted = ChatCrypto.encrypt(
+                    ownMaterial,
+                    peerIdentity.getString("exchange_public_key"),
+                    id,
+                    plain
                 )
-                val nonce = ByteArray(12).also { SecureRandom().nextBytes(it) }
-                val nonceText = Base64.encodeToString(nonce, Base64.NO_WRAP)
                 AuthApi.post(
                     "/api/v1/chats/$id/messages",
-                    JSONObject().put("ciphertext", encoded).put("nonce", nonceText),
+                    JSONObject().put("ciphertext", encrypted.ciphertext)
+                        .put("nonce", encrypted.nonce),
                     token
                 )
                 runOnUiThread {
@@ -234,6 +245,11 @@ class ChatActivity : Activity() {
             try {
                 val response = AuthApi.get("/api/v1/chats/$id/messages", token)
                 val messages = response.optJSONArray("messages") ?: JSONArray()
+                val peerIdForCrypto = activePeerRtkId ?: error("Chat contact is missing")
+                val peerIdentityForCrypto = AuthApi.get("/api/v1/identity/by-user/$peerIdForCrypto", token).getJSONObject("identity")
+                val ownMaterialForCrypto = IdentityVault.load(this) ?: error("Identity vault unavailable")
+                val peerExchangePublicForCrypto = peerIdentityForCrypto.getString("exchange_public_key")
+                val peerSigningPublicForCrypto = peerIdentityForCrypto.getString("signing_public_key")
                 val signature = buildString {
                     for (i in 0 until messages.length()) {
                         append(messages.optJSONObject(i)?.optInt("id") ?: 0).append(':')
@@ -250,21 +266,45 @@ class ChatActivity : Activity() {
                         val item = messages.optJSONObject(i) ?: continue
                         val sender = item.optString("sender_id")
                         val decoded = try {
-                            String(Base64.decode(item.optString("ciphertext"), Base64.DEFAULT), Charsets.UTF_8)
+                            ChatCrypto.decrypt(
+                                ownMaterialForCrypto,
+                                peerExchangePublicForCrypto,
+                                if (sender.equals(peerIdForCrypto, true)) peerSigningPublicForCrypto else ownMaterialForCrypto.signingPublicBase64(),
+                                id,
+                                item.optString("ciphertext"),
+                                item.optString("nonce")
+                            )
                         } catch (_: Exception) {
-                            "[Unsupported message payload]"
+                            // Backward compatibility for existing pre-E2EE Base64 test messages.
+                            try {
+                                "[Legacy] " + String(Base64.decode(item.optString("ciphertext"), Base64.DEFAULT), Charsets.UTF_8)
+                            } catch (_: Exception) {
+                                "[Unable to decrypt — verify the contact identity and recovery phrase]"
+                            }
                         }
-                        rows.addView(label(
-                            "$sender\n$decoded\n${item.optString("created_at")}",
-                            14f
-                        ).apply {
-                            setBackgroundColor(0xffeeeeee.toInt())
-                        }, LinearLayout.LayoutParams(
+                        val mine = !sender.equals(activePeerRtkId, true)
+                        val bubble = TextView(this).apply {
+                            text = "$decoded\n${item.optString("created_at")}"
+                            textSize = 14f
+                            setTextColor(0xff17212b.toInt())
+                            setPadding(dp(12), dp(9), dp(12), dp(9))
+                            setBackgroundColor(if (mine) 0xffd9fdd3.toInt() else 0xffffffff.toInt())
+                        }
+                        val line = LinearLayout(this).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = if (mine) Gravity.END else Gravity.START
+                            setPadding(dp(4), dp(2), dp(4), dp(2))
+                            addView(bubble, LinearLayout.LayoutParams(
+                                (resources.displayMetrics.widthPixels * 0.78f).toInt(),
+                                ViewGroup.LayoutParams.WRAP_CONTENT
+                            ))
+                        }
+                        rows.addView(line, LinearLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.WRAP_CONTENT
-                        ).apply { bottomMargin = dp(6) })
+                        ).apply { bottomMargin = dp(4) })
                     }
-                    statusView?.text = "Messages: ${messages.length()} • refreshes every 4 seconds"
+                    statusView?.text = "🔒 E2EE • fingerprint ${peerIdentityForCrypto.optString("fingerprint")}… • ${messages.length()} messages"
                 }
             } catch (e: Exception) {
                 runOnUiThread { statusView?.text = "Message load failed: ${e.message}" }
