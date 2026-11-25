@@ -50,3 +50,34 @@ SAFE_DEPENDENCY_BACKUP_*/
 .idea/
 .vscode/
 .DS_Store
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+# Databases and user data
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Android signing keys
+*.jks
+*.keystore
+*.pem
+*.key
+
+# Build outputs
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab

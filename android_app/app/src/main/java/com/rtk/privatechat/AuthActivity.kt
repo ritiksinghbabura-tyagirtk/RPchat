@@ -3,6 +3,7 @@ package com.rtk.privatechat
 import android.app.Activity
 import android.app.AlertDialog
 import android.os.Bundle
+import android.graphics.drawable.GradientDrawable
 import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
@@ -61,72 +62,158 @@ class AuthActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(32), dp(24), dp(24))
+            setPadding(dp(22), dp(28), dp(22), dp(24))
+            setBackgroundColor(getColor(R.color.rtk_background))
         }
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
-            addView(root)
+            clipToPadding = false
+            addView(root, ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ))
         }
+
+        val brandMark = TextView(this).apply {
+            text = "R"
+            textSize = 25f
+            gravity = Gravity.CENTER
+            typeface = android.graphics.Typeface.create("sans-serif-black", 0)
+            setTextColor(getColor(R.color.rtk_background))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(getColor(R.color.rtk_green))
+            }
+        }
+        root.addView(brandMark, LinearLayout.LayoutParams(dp(58), dp(58)).apply {
+            bottomMargin = dp(14)
+        })
 
         root.addView(TextView(this).apply {
             text = "RTK PRIVATE"
-            textSize = 30f
+            textSize = 27f
             gravity = Gravity.CENTER
-            setTextColor(getColor(R.color.rtk_green))
-        })
+            typeface = android.graphics.Typeface.create("sans-serif-medium", 0)
+            setTextColor(getColor(R.color.rtk_text))
+        }, match())
 
         root.addView(TextView(this).apply {
-            text = "Private one-to-one messaging"
-            textSize = 15f
+            text = "Private conversations. Your identity stays yours."
+            textSize = 13f
             gravity = Gravity.CENTER
-            setPadding(0, dp(8), 0, dp(28))
+            setPadding(dp(8), dp(7), dp(8), dp(24))
             setTextColor(getColor(R.color.rtk_muted))
-        })
+        }, match())
 
-        usernameInput = EditText(this).apply {
-            hint = "Username"
-            isSingleLine = true
-            inputType = InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        val formCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(20), dp(18), dp(18))
+            background = GradientDrawable().apply {
+                setColor(getColor(R.color.rtk_surface))
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), getColor(R.color.rtk_border))
+            }
         }
 
-        passwordInput = EditText(this).apply {
-            hint = "Password (minimum 12 characters)"
-            isSingleLine = true
-            inputType = InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_VARIATION_PASSWORD
+        formCard.addView(TextView(this).apply {
+            text = "Welcome back"
+            textSize = 20f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", 0)
+            setTextColor(getColor(R.color.rtk_text))
+            setPadding(dp(2), 0, dp(2), dp(5))
+        }, match())
+        formCard.addView(TextView(this).apply {
+            text = "Sign in or create your secure account."
+            textSize = 13f
+            setTextColor(getColor(R.color.rtk_muted))
+            setPadding(dp(2), 0, dp(2), dp(16))
+        }, match())
+
+        fun styleField(field: EditText, hintText: String, inputTypeValue: Int) {
+            field.hint = hintText
+            field.isSingleLine = true
+            field.inputType = inputTypeValue
+            field.textSize = 15f
+            field.setTextColor(getColor(R.color.rtk_text))
+            field.setHintTextColor(getColor(R.color.rtk_muted))
+            field.background = GradientDrawable().apply {
+                setColor(getColor(R.color.rtk_input))
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), getColor(R.color.rtk_border))
+            }
+            field.setPadding(dp(14), dp(13), dp(14), dp(13))
         }
+
+        usernameInput = EditText(this)
+        styleField(usernameInput, "Username", InputType.TYPE_CLASS_TEXT or
+            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
+        passwordInput = EditText(this)
+        styleField(passwordInput, "Password (minimum 12 characters)",
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
 
         statusText = TextView(this).apply {
             text = "Your password is protected using Argon2id."
-            textSize = 13f
-            setPadding(0, dp(14), 0, dp(14))
+            textSize = 12f
+            setPadding(dp(2), dp(13), dp(2), dp(12))
             setTextColor(getColor(R.color.rtk_muted))
         }
 
-        submitButton = Button(this)
-        toggleButton = Button(this)
-        recoveryButton = Button(this)
+        submitButton = Button(this).apply {
+            isAllCaps = false
+            textSize = 15f
+            minHeight = dp(52)
+            setTextColor(getColor(R.color.rtk_background))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.rtk_green))
+        }
+        toggleButton = Button(this).apply {
+            isAllCaps = false
+            textSize = 13f
+            minHeight = dp(48)
+            setTextColor(getColor(R.color.rtk_green))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.rtk_surface_elevated))
+        }
+        recoveryButton = Button(this).apply {
+            isAllCaps = false
+            textSize = 13f
+            minHeight = dp(46)
+            setTextColor(getColor(R.color.rtk_muted))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.rtk_surface))
+        }
 
         submitButton.setOnClickListener { submit() }
-
         toggleButton.setOnClickListener {
             registerMode = !registerMode
             updateMode()
         }
-
         recoveryButton.text = "Forgot RTK ID / Password?"
         recoveryButton.setOnClickListener { showRecoveryDialog() }
 
-        root.addView(usernameInput, match())
-        root.addView(passwordInput, match())
-        root.addView(submitButton, match())
-        root.addView(toggleButton, match())
-        root.addView(recoveryButton, match())
-        root.addView(statusText, match())
+        fun addSpaced(view: android.view.View, top: Int = 0) {
+            formCard.addView(view, match().apply { topMargin = dp(top) })
+        }
+        addSpaced(usernameInput, 2)
+        addSpaced(passwordInput, 12)
+        addSpaced(submitButton, 18)
+        addSpaced(toggleButton, 9)
+        addSpaced(recoveryButton, 4)
+        addSpaced(statusText, 6)
+        root.addView(formCard, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
+        root.addView(TextView(this).apply {
+            text = "END-TO-END ENCRYPTED  •  PRIVATE BY DESIGN"
+            textSize = 10f
+            gravity = Gravity.CENTER
+            letterSpacing = 0.06f
+            setTextColor(getColor(R.color.rtk_muted))
+            setPadding(dp(8), dp(20), dp(8), dp(8))
+        }, match())
 
         setContentView(scroll)
+        UiWindow.apply(this, scroll)
         updateMode()
     }
 

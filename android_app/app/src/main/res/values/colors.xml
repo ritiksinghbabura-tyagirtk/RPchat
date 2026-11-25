@@ -1,8 +1,11 @@
 <resources>
-    <color name="rtk_background">#0B0F0D</color>
-    <color name="rtk_surface">#151C18</color>
-    <color name="rtk_green">#65E69A</color>
-    <color name="rtk_text">#F2F7F3</color>
-    <color name="rtk_muted">#9AA9A0</color>
-    <color name="rtk_border">#29362E</color>
+    <color name="rtk_background">#08110D</color>
+    <color name="rtk_surface">#101D16</color>
+    <color name="rtk_surface_elevated">#17271E</color>
+    <color name="rtk_green">#72E6A1</color>
+    <color name="rtk_green_dark">#143B27</color>
+    <color name="rtk_text">#F3F8F4</color>
+    <color name="rtk_muted">#9BAFA2</color>
+    <color name="rtk_border">#294334</color>
+    <color name="rtk_input">#0D1812</color>
 </resources>
